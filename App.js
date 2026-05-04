@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
 import {
-  FlatList,
+  Alert,
   Modal,
+  SectionList,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
+import DateTimePicker from "@react-native-community/datetimepicker";
 import TaskCard from "./src/components/TaskCard";
 import { getTasks, saveTasks } from "./src/services/storage";
 
@@ -17,6 +18,11 @@ export default function App() {
   const [tasks, setTasks] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [title, setTitle] = useState("");
+  const [dueDate, setDueDate] = useState(new Date());
+  const [showPicker, setShowPicker] = useState(false);
+  const [reminderDays, setReminderDays] = useState(1);
+  const [repeatInterval, setRepeatInterval] = useState(null);
+  const [editingTask, setEditingTask] = useState(null);
 
   useEffect(() => {
     loadTasks();
@@ -24,39 +30,178 @@ export default function App() {
 
   const loadTasks = async () => {
     const data = await getTasks();
+
     setTasks(data);
+  };
+  const groupTasks = (tasks) => {
+    const today = new Date();
+
+    const overdue = [];
+    const soon = [];
+    const upcoming = [];
+
+    tasks.forEach((task) => {
+      const due = new Date(task.dueDate);
+      const diffDays = (due - today) / (1000 * 60 * 60 * 24);
+
+      if (diffDays < 0) {
+        overdue.push(task);
+      } else if (diffDays <= 3) {
+        soon.push(task);
+      } else {
+        upcoming.push(task);
+      }
+    });
+    overdue.sort((a, b) => {
+      new Date(a.dueDate) - new Date(b.dueDate);
+    });
+    soon.sort((a, b) => {
+      new Date(a.dueDate) - new Date(b.dueDate);
+    });
+    upcoming.sort((a, b) => {
+      new Date(a.dueDate) - new Date(b.dueDate);
+    });
+
+    return [
+      { title: "Overdue", data: overdue },
+      { title: "Due Soon", data: soon },
+      { title: "Upcoming", data: upcoming },
+    ].filter((section) => section.data.length > 0);
+  };
+  const getHeaderColor = (title) => {
+    if (title === "Overdue") return "#FF6B6B";
+    if (title === "Due Soon") return "#FFA500";
+    return "#4A90E2";
+  };
+
+  const onDateChange = (event, selectedDate) => {
+    setShowPicker(false);
+    if (selectedDate) {
+      setDueDate(selectedDate);
+    }
   };
 
   const handleAdd = async () => {
     if (!title.trim()) return;
 
-    const newTask = {
-      id: Date.now().toString(),
-      title,
-      dueDate: new Date().toDateString(),
-    };
+    if (editingTask) {
+      // ✏️ UPDATE EXISTING
+      const updatedTasks = tasks
+        .map((t) =>
+          t.id === editingTask.id
+            ? {
+                ...t,
+                title,
+                dueDate: dueDate.toISOString(),
+                repeatInterval,
+              }
+            : t,
+        )
+        .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
-    const updated = [newTask, ...tasks];
+      setTasks(updatedTasks);
+      await saveTasks(updatedTasks);
+    } else {
+      const newTask = {
+        id: Date.now().toString(),
+        title,
+        dueDate: dueDate.toISOString(),
+        reminderDaysBefore: [1],
+        repeatInterval: repeatInterval,
+      };
+      // await scheduleNotification(newTask.title, newTask.dueDate);
 
-    setTasks(updated);
-    await saveTasks(updated);
+      const updated = [newTask, ...tasks].sort(
+        (a, b) => new Date(a.dueDate) - new Date(b.dueDate),
+      );
 
+      setTasks(updated);
+      await saveTasks(updated);
+    }
     setTitle("");
+    setRepeatInterval(null);
+    setEditingTask(null);
     setModalVisible(false);
   };
 
+  const handleEdit = (task) => {
+    setEditingTask(task);
+
+    setTitle(task.title);
+    setDueDate(new Date(task.dueDate));
+    setRepeatInterval(task.repeatInterval);
+
+    setModalVisible(true);
+  };
+
+  const handleComplete = async (task) => {
+    if (task.repeatInterval) {
+      // 🔁 Recurring task → update date
+      const newDate = new Date(task.dueDate);
+      newDate.setDate(newDate.getDate() + task.repeatInterval);
+
+      const updatedTasks = tasks.map((t) =>
+        t.id === task.id ? { ...t, dueDate: newDate.toISOString() } : t,
+      );
+      updatedTasks.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+      setTasks(updatedTasks);
+      await saveTasks(updatedTasks);
+    } else {
+      const filtered = tasks.filter((t) => t.id !== task.id);
+
+      setTasks(filtered);
+      await saveTasks(filtered);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    async function deleteTask(id) {
+      const filtered = tasks.filter((task) => task.id != id);
+      setTasks(filtered);
+      await saveTasks(filtered);
+    }
+    Alert.alert("Delete Task", "Are you sure?", [
+      { text: "cancel" },
+      {
+        text: "delete",
+        onPress: async () => deleteTask(id),
+      },
+    ]);
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {/* Header */}
       <Text style={styles.header}>DueMate</Text>
       <Text style={styles.subHeader}>Never miss what matters</Text>
 
       {/* List */}
-      <FlatList
+      {/* <FlatList
         data={tasks}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <TaskCard task={item} />}
+        renderItem={({ item }) => (
+          <TaskCard task={item} onDelete={handleDelete} />
+        )}
         contentContainerStyle={{ paddingTop: 10 }}
+      /> */}
+      <SectionList
+        sections={groupTasks(tasks)}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <TaskCard
+            task={item}
+            onDelete={handleDelete}
+            onComplete={handleComplete}
+            onEdit={handleEdit}
+          />
+        )}
+        renderSectionHeader={({ section: { title } }) => (
+          <Text
+            style={[styles.sectionHeader, { color: getHeaderColor(title) }]}
+          >
+            {title}
+          </Text>
+        )}
       />
 
       {/* FAB */}
@@ -71,14 +216,85 @@ export default function App() {
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Task</Text>
-
+            <Text style={styles.modalTitle}>
+              {editingTask ? "Edit Task" : "Add Task"}
+            </Text>
             <TextInput
               placeholder="What do you want to track?"
               value={title}
               onChangeText={setTitle}
               style={styles.input}
             />
+            {/* Date Picker Button */}
+            <TouchableOpacity
+              style={styles.dateBtn}
+              onPress={() => setShowPicker(true)}
+            >
+              <Text style={styles.dateText}>Due: {dueDate.toDateString()}</Text>
+            </TouchableOpacity>
+
+            {/* Show Picker */}
+            {showPicker && (
+              <DateTimePicker
+                value={dueDate}
+                mode="date"
+                display="default"
+                onChange={onDateChange}
+              />
+            )}
+            <View style={styles.reminderRow}>
+              {[1, 3, 7].map((day) => (
+                <TouchableOpacity
+                  key={day}
+                  style={[
+                    styles.reminderBtn,
+                    reminderDays === day && styles.reminderActive,
+                  ]}
+                  onPress={() => setReminderDays(day)}
+                >
+                  <Text
+                    style={{
+                      color: reminderDays === day ? "#fff" : "#333",
+                    }}
+                  >
+                    {day}d
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.label}>Repeat</Text>
+
+            <View style={styles.repeatRow}>
+              {[null, 30, 90, 365].map((val) => {
+                const label =
+                  val === null
+                    ? "None"
+                    : val === 30
+                      ? "30d"
+                      : val === 90
+                        ? "90d"
+                        : "1y";
+
+                return (
+                  <TouchableOpacity
+                    key={label}
+                    style={[
+                      styles.repeatBtn,
+                      repeatInterval === val && styles.repeatActive,
+                    ]}
+                    onPress={() => setRepeatInterval(val)}
+                  >
+                    <Text
+                      style={{
+                        color: repeatInterval === val ? "#fff" : "#333",
+                      }}
+                    >
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
             <TouchableOpacity style={styles.saveBtn} onPress={handleAdd}>
               <Text style={styles.saveText}>Save</Text>
@@ -90,14 +306,16 @@ export default function App() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
+    // paddingHorizontal: 16,
+    //     paddingVertical: 32,
+    padding: 16,
     backgroundColor: "#F5F6FA",
   },
 
@@ -109,6 +327,13 @@ const styles = StyleSheet.create({
   subHeader: {
     color: "#777",
     marginBottom: 10,
+  },
+  sectionHeader: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginTop: 16,
+    marginBottom: 6,
+    color: "#333",
   },
 
   fab: {
@@ -155,6 +380,33 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 12,
   },
+  dateBtn: {
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: "#EEF3FB",
+    marginBottom: 12,
+  },
+
+  dateText: {
+    color: "#333",
+  },
+
+  reminderRow: {
+    flexDirection: "row",
+    marginBottom: 12,
+  },
+
+  reminderBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    backgroundColor: "#eee",
+    marginRight: 8,
+  },
+
+  reminderActive: {
+    backgroundColor: "#4A90E2",
+  },
 
   saveBtn: {
     backgroundColor: "#4A90E2",
@@ -172,5 +424,27 @@ const styles = StyleSheet.create({
     marginTop: 10,
     textAlign: "center",
     color: "#888",
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 6,
+  },
+
+  repeatRow: {
+    flexDirection: "row",
+    marginBottom: 12,
+  },
+
+  repeatBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: "#eee",
+    marginRight: 8,
+  },
+
+  repeatActive: {
+    backgroundColor: "#4A90E2",
   },
 });

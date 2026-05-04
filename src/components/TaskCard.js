@@ -1,14 +1,46 @@
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-export default function TaskCard({ task }) {
+export default function TaskCard({ task, onDelete, onComplete, onEdit }) {
+  const getStatus = (date) => {
+    const today = new Date();
+    const due = new Date(date);
+
+    const diffTime = due - today;
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+
+    if (diffDays < 0) return "overdue";
+    if (diffDays <= 3) return "soon";
+    return "upcoming";
+  };
+  const status = getStatus(task.dueDate);
+
+  const borderColor =
+    status === "overdue"
+      ? "#FF6B6B"
+      : status === "soon"
+        ? "#FFA500"
+        : "#4A90E2";
+
   return (
     <View style={styles.card}>
-      <View style={styles.leftBorder} />
+      <View style={[styles.leftBorder, { backgroundColor: borderColor }]} />
 
       <View>
         <Text style={styles.title}>{task.title}</Text>
-        <Text style={styles.date}>{task.dueDate}</Text>
+        <Text style={styles.date}>{new Date(task.dueDate).toDateString()}</Text>
+        <Text style={{ marginTop: 4, color: borderColor }}>
+          {status.toUpperCase()}
+        </Text>
       </View>
+      <TouchableOpacity onPress={() => onDelete(task.id)}>
+        <Text style={styles.delete}>🗑</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => onComplete(task)}>
+        <Text style={styles.done}>✔️</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => onEdit(task)}>
+        <Text style={styles.edit}>✏️</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -37,5 +69,17 @@ const styles = StyleSheet.create({
   date: {
     color: "#777",
     marginTop: 4,
+  },
+  delete: {
+    fontSize: 18,
+    marginLeft: 10,
+  },
+  done: {
+    fontSize: 18,
+    marginLeft: 10,
+  },
+  edit: {
+    fontSize: 18,
+    marginLeft: 10,
   },
 });

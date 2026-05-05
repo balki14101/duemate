@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   SectionList,
   StyleSheet,
   Text,
@@ -184,25 +186,34 @@ export default function App() {
         )}
         contentContainerStyle={{ paddingTop: 10 }}
       /> */}
-      <SectionList
-        sections={groupTasks(tasks)}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TaskCard
-            task={item}
-            onDelete={handleDelete}
-            onComplete={handleComplete}
-            onEdit={handleEdit}
-          />
-        )}
-        renderSectionHeader={({ section: { title } }) => (
-          <Text
-            style={[styles.sectionHeader, { color: getHeaderColor(title) }]}
-          >
-            {title}
+      {tasks.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyTitle}>No tasks yet</Text>
+          <Text style={styles.emptySubtitle}>
+            Tap + to add your first reminder
           </Text>
-        )}
-      />
+        </View>
+      ) : (
+        <SectionList
+          sections={groupTasks(tasks)}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TaskCard
+              task={item}
+              onDelete={handleDelete}
+              onComplete={handleComplete}
+              onEdit={handleEdit}
+            />
+          )}
+          renderSectionHeader={({ section: { title } }) => (
+            <Text
+              style={[styles.sectionHeader, { color: getHeaderColor(title) }]}
+            >
+              {title}
+            </Text>
+          )}
+        />
+      )}
 
       {/* FAB */}
       <TouchableOpacity
@@ -214,35 +225,42 @@ export default function App() {
 
       {/* Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              {editingTask ? "Edit Task" : "Add Task"}
-            </Text>
-            <TextInput
-              placeholder="What do you want to track?"
-              value={title}
-              onChangeText={setTitle}
-              style={styles.input}
-            />
-            {/* Date Picker Button */}
-            <TouchableOpacity
-              style={styles.dateBtn}
-              onPress={() => setShowPicker(true)}
-            >
-              <Text style={styles.dateText}>Due: {dueDate.toDateString()}</Text>
-            </TouchableOpacity>
-
-            {/* Show Picker */}
-            {showPicker && (
-              <DateTimePicker
-                value={dueDate}
-                mode="date"
-                display="default"
-                onChange={onDateChange}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>
+                {editingTask ? "Edit Task" : "Add Task"}
+              </Text>
+              <TextInput
+                placeholder="What do you want to track?"
+                placeholderTextColor="#808080"
+                value={title}
+                onChangeText={setTitle}
+                style={styles.input}
               />
-            )}
-            <View style={styles.reminderRow}>
+              {/* Date Picker Button */}
+              <TouchableOpacity
+                style={styles.dateBtn}
+                onPress={() => setShowPicker(true)}
+              >
+                <Text style={styles.dateText}>
+                  Due: {dueDate.toDateString()}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Show Picker */}
+              {showPicker && (
+                <DateTimePicker
+                  value={dueDate}
+                  mode="date"
+                  display="default"
+                  onChange={onDateChange}
+                />
+              )}
+              {/* <View style={styles.reminderRow}>
               {[1, 3, 7].map((day) => (
                 <TouchableOpacity
                   key={day}
@@ -261,50 +279,51 @@ export default function App() {
                   </Text>
                 </TouchableOpacity>
               ))}
-            </View>
-            <Text style={styles.label}>Repeat</Text>
+            </View> */}
+              <Text style={styles.label}>Repeat</Text>
 
-            <View style={styles.repeatRow}>
-              {[null, 30, 90, 365].map((val) => {
-                const label =
-                  val === null
-                    ? "None"
-                    : val === 30
-                      ? "30d"
-                      : val === 90
-                        ? "90d"
-                        : "1y";
+              <View style={styles.repeatRow}>
+                {[null, 30, 90, 365].map((val) => {
+                  const label =
+                    val === null
+                      ? "None"
+                      : val === 30
+                        ? "30d"
+                        : val === 90
+                          ? "90d"
+                          : "1y";
 
-                return (
-                  <TouchableOpacity
-                    key={label}
-                    style={[
-                      styles.repeatBtn,
-                      repeatInterval === val && styles.repeatActive,
-                    ]}
-                    onPress={() => setRepeatInterval(val)}
-                  >
-                    <Text
-                      style={{
-                        color: repeatInterval === val ? "#fff" : "#333",
-                      }}
+                  return (
+                    <TouchableOpacity
+                      key={label}
+                      style={[
+                        styles.repeatBtn,
+                        repeatInterval === val && styles.repeatActive,
+                      ]}
+                      onPress={() => setRepeatInterval(val)}
                     >
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                      <Text
+                        style={{
+                          color: repeatInterval === val ? "#fff" : "#333",
+                        }}
+                      >
+                        {label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <TouchableOpacity style={styles.saveBtn} onPress={handleAdd}>
+                <Text style={styles.saveText}>Save</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Text style={styles.cancel}>Cancel</Text>
+              </TouchableOpacity>
             </View>
-
-            <TouchableOpacity style={styles.saveBtn} onPress={handleAdd}>
-              <Text style={styles.saveText}>Save</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Text style={styles.cancel}>Cancel</Text>
-            </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -322,11 +341,28 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 26,
     fontWeight: "bold",
+    marginTop: 16,
   },
 
   subHeader: {
     color: "#777",
     marginBottom: 10,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 80,
+  },
+
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 6,
+  },
+
+  emptySubtitle: {
+    color: "#777",
   },
   sectionHeader: {
     fontSize: 16,
@@ -338,26 +374,26 @@ const styles = StyleSheet.create({
 
   fab: {
     position: "absolute",
-    right: 20,
-    bottom: 30,
+    right: 24,
+    bottom: 24,
     backgroundColor: "#4A90E2",
     width: 60,
     height: 60,
     borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 6,
+    elevation: 5,
   },
 
   fabText: {
-    fontSize: 30,
+    fontSize: 28,
     color: "#fff",
   },
 
   modalContainer: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.3)",
+    backgroundColor: "rgba(0,0,0,0.4)",
   },
 
   modalContent: {
@@ -376,9 +412,9 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: "#ddd",
-    padding: 12,
+    padding: 10,
     borderRadius: 10,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   dateBtn: {
     padding: 12,

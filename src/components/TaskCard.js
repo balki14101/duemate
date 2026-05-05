@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function TaskCard({ task, onDelete, onComplete, onEdit }) {
@@ -24,15 +25,15 @@ export default function TaskCard({ task, onDelete, onComplete, onEdit }) {
   return (
     <View style={styles.card}>
       <View style={[styles.leftBorder, { backgroundColor: borderColor }]} />
-
       <View>
         <Text style={styles.title}>{task.title}</Text>
         <Text style={styles.date}>{new Date(task.dueDate).toDateString()}</Text>
-        <Text style={{ marginTop: 4, color: borderColor }}>
+        {/* <Text style={{ marginTop: 4, color: borderColor }}>
           {status.toUpperCase()}
-        </Text>
+        </Text> */}
       </View>
-      <TouchableOpacity onPress={() => onDelete(task.id)}>
+
+      {/* <TouchableOpacity onPress={() => onDelete(task.id)}>
         <Text style={styles.delete}>🗑</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={() => onComplete(task)}>
@@ -40,7 +41,20 @@ export default function TaskCard({ task, onDelete, onComplete, onEdit }) {
       </TouchableOpacity>
       <TouchableOpacity onPress={() => onEdit(task)}>
         <Text style={styles.edit}>✏️</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
+      <View style={styles.actions}>
+        <TouchableOpacity onPress={() => onComplete(task)}>
+          <Ionicons name="checkmark-circle-outline" size={22} color="#4CAF50" />
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => onEdit(task)}>
+          <Ionicons name="create-outline" size={20} color="#4A90E2" />
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => onDelete(task.id)}>
+          <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -48,6 +62,7 @@ export default function TaskCard({ task, onDelete, onComplete, onEdit }) {
 const styles = StyleSheet.create({
   card: {
     flexDirection: "row",
+    // justifyContent: "space-between",
     backgroundColor: "#fff",
     padding: 16,
     borderRadius: 14,
@@ -81,5 +96,12 @@ const styles = StyleSheet.create({
   edit: {
     fontSize: 18,
     marginLeft: 10,
+  },
+  actions: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 12,
   },
 });

@@ -22,33 +22,53 @@ export const requestPermission = async () => {
 // Simple schedule (1 notification)
 export const scheduleNotification = async (title, dueDate) => {
   try {
-    const trigger = new Date();
+    const reminderDays = getReminderDaysBefore(dueDate);
+    const ids = [];
+    for (const day of reminderDays) {
+      const trigger = new Date();
+      // trigger.setDate(trigger.getDate() - day);
 
-    // For testing → trigger after 1 minute
-    trigger.setMinutes(trigger.getMinutes() + 1);
-    if (trigger <= new Date()) {
-      console.log("Past date, not scheduling");
-      return;
+      // TEST ONLY — revert to setDate before release
+      trigger.setMinutes(trigger.getMinutes() + day);
+
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Reminder",
+          body: `${title} due in ${day} day${day > 1 ? "s" : ""}`,
+        },
+        trigger: {
+          type: "date",
+          date: trigger,
+        },
+      });
+      ids.push(id);
     }
-
-    const id = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "Reminder",
-        body: title,
-      },
-      trigger: {
-        type: "date",
-        date: trigger,
-      },
-    });
-    return id;
+    return ids;
   } catch (error) {
     console.log("Schedule error:", error);
     return null;
   }
 };
 
-export const cancelNotification = async (id) => {
-  if (!id) return;
-  await Notifications.cancelScheduledNotificationAsync(id);
+export const cancelNotification = async (ids) => {
+  if (!ids) return;
+  try {
+    for (const id of ids)
+      await Notifications.cancelScheduledNotificationAsync(id);
+  } catch (error) {
+    console.log("Cancel error:", error);
+  }
+};
+
+export const getReminderDaysBefore = (dueDate) => {
+  const now = new Date();
+  const due = new Date(dueDate);
+
+  const diffInDays = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
+  let reminderDays = [];
+
+  if (diffInDays > 30) reminderDays = [30, 7, 1];
+  else if (diffInDays > 7) reminderDays = [7, 3, 1];
+  else reminderDays = [6, 5, 4, 3, 2, 1];
+  return reminderDays.filter((day) => day < diffInDays);
 };

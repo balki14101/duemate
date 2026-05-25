@@ -95,8 +95,8 @@ export default function App() {
     if (!title.trim()) return;
 
     if (editingTask) {
-      await cancelNotification(editingTask.notificationId);
-      let newNotificationId = await scheduleNotification(title, dueDate);
+      await cancelNotification(editingTask.notificationIds);
+      let newNotificationIds = await scheduleNotification(title, dueDate);
 
       const updatedTasks = tasks
         .map((t) =>
@@ -111,7 +111,7 @@ export default function App() {
                       unit: repeatUnit,
                     }
                   : null,
-                notificationId: newNotificationId,
+                notificationIds: newNotificationIds,
               }
             : t,
         )
@@ -120,10 +120,10 @@ export default function App() {
       setTasks(updatedTasks);
       await saveTasks(updatedTasks);
     } else {
-      let notificationId = null;
+      let notificationIds = null;
 
       try {
-        notificationId = await scheduleNotification(title, dueDate);
+        notificationIds = await scheduleNotification(title, dueDate);
       } catch (error) {
         console.log("Notification error:", error);
       }
@@ -138,7 +138,7 @@ export default function App() {
               unit: repeatUnit,
             }
           : null,
-        notificationId,
+        notificationIds,
       };
       // await scheduleNotification(newTask.title, newTask.dueDate);
 
@@ -190,7 +190,7 @@ export default function App() {
 
       setTasks(filtered);
       await saveTasks(filtered);
-      await cancelNotification(task.notificationId);
+      await cancelNotification(task.notificationIds);
     }
   };
 
@@ -200,7 +200,7 @@ export default function App() {
       setTasks(filtered);
       await saveTasks(filtered);
       const taskToDelete = tasks.filter((task) => task.id == id);
-      await cancelNotification(taskToDelete.notificationId);
+      await cancelNotification(taskToDelete.notificationIds);
     }
     Alert.alert("Delete Task", "Are you sure?", [
       { text: "cancel" },
@@ -320,7 +320,7 @@ export default function App() {
                 </TouchableOpacity>
               ))}
             </View> */}
-              <Text style={styles.label}>Repeat</Text>
+              <Text style={styles.label}>Repeat every</Text>
               <View style={styles.repeatRow}>
                 <TextInput
                   style={styles.repeatInput}
@@ -334,6 +334,7 @@ export default function App() {
                 <Picker
                   selectedValue={repeatUnit}
                   style={styles.repeatPicker}
+                  dropdownIconColor="#000000"
                   onValueChange={setRepeatUnit}
                 >
                   <Picker.Item label="Days" value="day" />
@@ -543,6 +544,7 @@ const styles = StyleSheet.create({
 
   repeatPicker: {
     flex: 1,
+    color: "#000",
   },
   repeatRow: {
     flexDirection: "row",

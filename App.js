@@ -14,6 +14,11 @@ import {
 
 import DateTimePicker from "@react-native-community/datetimepicker";
 import TaskCard from "./src/components/TaskCard";
+import {
+  cancelNotification,
+  requestPermission,
+  scheduleNotification,
+} from "./src/services/notifications";
 import { getTasks, saveTasks } from "./src/services/storage";
 
 export default function App() {
@@ -27,6 +32,7 @@ export default function App() {
   const [editingTask, setEditingTask] = useState(null);
 
   useEffect(() => {
+    requestPermission();
     loadTasks();
   }, []);
 
@@ -87,6 +93,9 @@ export default function App() {
     if (!title.trim()) return;
 
     if (editingTask) {
+      await cancelNotification(editingTask.notificationId);
+      let newNotificationId = await scheduleNotification(title, dueDate);
+
       // ✏️ UPDATE EXISTING
       const updatedTasks = tasks
         .map((t) =>
@@ -96,6 +105,7 @@ export default function App() {
                 title,
                 dueDate: dueDate.toISOString(),
                 repeatInterval,
+                notificationId: newNotificationId,
               }
             : t,
         )
@@ -104,12 +114,20 @@ export default function App() {
       setTasks(updatedTasks);
       await saveTasks(updatedTasks);
     } else {
+      let notificationId = null;
+
+      try {
+        notificationId = await scheduleNotification(title, dueDate);
+      } catch (error) {
+        console.log("Notification error:", error);
+      }
       const newTask = {
         id: Date.now().toString(),
         title,
         dueDate: dueDate.toISOString(),
         reminderDaysBefore: [1],
         repeatInterval: repeatInterval,
+        notificationId,
       };
       // await scheduleNotification(newTask.title, newTask.dueDate);
 
@@ -138,10 +156,8 @@ export default function App() {
 
   const handleComplete = async (task) => {
     if (task.repeatInterval) {
-      // 🔁 Recurring task → update date
       const newDate = new Date(task.dueDate);
       newDate.setDate(newDate.getDate() + task.repeatInterval);
-
       const updatedTasks = tasks.map((t) =>
         t.id === task.id ? { ...t, dueDate: newDate.toISOString() } : t,
       );
@@ -153,6 +169,7 @@ export default function App() {
 
       setTasks(filtered);
       await saveTasks(filtered);
+      await cancelNotification(task.notificationId);
     }
   };
 
@@ -161,6 +178,8 @@ export default function App() {
       const filtered = tasks.filter((task) => task.id != id);
       setTasks(filtered);
       await saveTasks(filtered);
+      const taskToDelete = tasks.filter((task) => task.id == id);
+      await cancelNotification(taskToDelete.notificationId);
     }
     Alert.alert("Delete Task", "Are you sure?", [
       { text: "cancel" },

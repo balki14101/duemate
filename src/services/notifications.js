@@ -26,10 +26,10 @@ export const scheduleNotification = async (title, dueDate) => {
     const ids = [];
     for (const day of reminderDays) {
       const trigger = new Date();
-      // trigger.setDate(trigger.getDate() - day);
+      trigger.setDate(trigger.getDate() - day);
 
       // TEST ONLY — revert to setDate before release
-      trigger.setMinutes(trigger.getMinutes() + day);
+      // trigger.setMinutes(trigger.getMinutes() + day);
 
       const id = await Notifications.scheduleNotificationAsync({
         content: {

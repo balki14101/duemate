@@ -13,6 +13,7 @@ import {
 } from "react-native";
 
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { Picker } from "@react-native-picker/picker";
 import TaskCard from "./src/components/TaskCard";
 import {
   cancelNotification,
@@ -28,7 +29,8 @@ export default function App() {
   const [dueDate, setDueDate] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
   const [reminderDays, setReminderDays] = useState(1);
-  const [repeatInterval, setRepeatInterval] = useState(null);
+  const [repeatValue, setRepeatValue] = useState("");
+  const [repeatUnit, setRepeatUnit] = useState("month");
   const [editingTask, setEditingTask] = useState(null);
 
   useEffect(() => {
@@ -96,7 +98,6 @@ export default function App() {
       await cancelNotification(editingTask.notificationId);
       let newNotificationId = await scheduleNotification(title, dueDate);
 
-      // ✏️ UPDATE EXISTING
       const updatedTasks = tasks
         .map((t) =>
           t.id === editingTask.id
@@ -104,7 +105,12 @@ export default function App() {
                 ...t,
                 title,
                 dueDate: dueDate.toISOString(),
-                repeatInterval,
+                repeat: repeatValue
+                  ? {
+                      value: Number(repeatValue),
+                      unit: repeatUnit,
+                    }
+                  : null,
                 notificationId: newNotificationId,
               }
             : t,
@@ -126,7 +132,12 @@ export default function App() {
         title,
         dueDate: dueDate.toISOString(),
         reminderDaysBefore: [1],
-        repeatInterval: repeatInterval,
+        repeat: repeatValue
+          ? {
+              value: Number(repeatValue),
+              unit: repeatUnit,
+            }
+          : null,
         notificationId,
       };
       // await scheduleNotification(newTask.title, newTask.dueDate);
@@ -139,7 +150,8 @@ export default function App() {
       await saveTasks(updated);
     }
     setTitle("");
-    setRepeatInterval(null);
+    setRepeatValue("");
+    setRepeatUnit("month");
     setEditingTask(null);
     setModalVisible(false);
   };
@@ -149,15 +161,24 @@ export default function App() {
 
     setTitle(task.title);
     setDueDate(new Date(task.dueDate));
-    setRepeatInterval(task.repeatInterval);
-
+    setRepeatValue(task.repeat?.value?.toString());
+    setRepeatUnit(task.repeat?.unit || "month");
     setModalVisible(true);
   };
 
   const handleComplete = async (task) => {
-    if (task.repeatInterval) {
+    if (task.repeat) {
       const newDate = new Date(task.dueDate);
-      newDate.setDate(newDate.getDate() + task.repeatInterval);
+      const { value, unit } = task.repeat;
+      if (unit === "day") {
+        newDate.setDate(newDate.getDate() + value);
+      }
+      if (unit === "month") {
+        newDate.setMonth(newDate.getMonth() + value);
+      }
+      if (unit === "year") {
+        newDate.setFullYear(newDate.getFullYear() + value);
+      }
       const updatedTasks = tasks.map((t) =>
         t.id === task.id ? { ...t, dueDate: newDate.toISOString() } : t,
       );
@@ -300,8 +321,27 @@ export default function App() {
               ))}
             </View> */}
               <Text style={styles.label}>Repeat</Text>
-
               <View style={styles.repeatRow}>
+                <TextInput
+                  style={styles.repeatInput}
+                  keyboardType="numeric"
+                  placeholder="1"
+                  placeholderTextColor="#999"
+                  value={repeatValue}
+                  onChangeText={setRepeatValue}
+                />
+
+                <Picker
+                  selectedValue={repeatUnit}
+                  style={styles.repeatPicker}
+                  onValueChange={setRepeatUnit}
+                >
+                  <Picker.Item label="Days" value="day" />
+                  <Picker.Item label="Months" value="month" />
+                  <Picker.Item label="Years" value="year" />
+                </Picker>
+              </View>
+              {/* <View style={styles.repeatRow}>
                 {[null, 30, 90, 365].map((val) => {
                   const label =
                     val === null
@@ -331,7 +371,7 @@ export default function App() {
                     </TouchableOpacity>
                   );
                 })}
-              </View>
+              </View> */}
 
               <TouchableOpacity style={styles.saveBtn} onPress={handleAdd}>
                 <Text style={styles.saveText}>Save</Text>
@@ -486,6 +526,24 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
 
+  repeatRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+
+  repeatInput: {
+    width: 80,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+
+  repeatPicker: {
+    flex: 1,
+  },
   repeatRow: {
     flexDirection: "row",
     marginBottom: 12,
